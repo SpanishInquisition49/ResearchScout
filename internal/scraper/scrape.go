@@ -74,7 +74,7 @@ func getCallDetails(h *colly.HTMLElement) {
 	// the call details url is the first link in the second div
 	callUrl := h.ChildAttr("div.mt-4.row a:first-child", "href")
 	// the application module url is the second link in the second div
-	applicationUrl := h.ChildAttr("div.mt-4.row a:last-child", "href")
+	applicationUrl := h.ChildAttr("p.download-list:nth-child(5) > a:nth-child(1)", "href")
 
 	start := strings.Index(titleFull, "“")
 	end := strings.Index(titleFull, "”")
@@ -90,4 +90,14 @@ func getCallDetails(h *colly.HTMLElement) {
 
 func (c *Call) String() string {
 	return fmt.Sprintf("Title: %s\nExpiration Date: %s\nRequirements URL: %s\nApplication Module URL: %s\n", c.Title, c.ExpirationDate, c.CallUrl, c.ModuleUrl)
+}
+
+func (c *Call) ToBotStringHTML() string {
+	msgText := fmt.Sprintf(
+		"🎓 <b>%s</b>\n\n"+
+			"• <b>Deadline:</b> %s\n",
+		c.Title,
+		c.ExpirationDate,
+	)
+	return strings.ToValidUTF8(msgText, "")
 }
