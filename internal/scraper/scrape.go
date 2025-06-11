@@ -1,48 +1,31 @@
 package scraper
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
+	"unipi-research-crawler/internal/database"
 
 	"github.com/gocolly/colly"
 )
-
-type Call struct {
-	Title          string
-	ExpirationDate string
-	CallUrl        string
-	ModuleUrl      string
-}
 
 const (
 	baseUrl = "https://bandi.unipi.it"
 )
 
-var calls []Call
+var db *database.Queries = nil
 
-func Scrape() *[]Call {
-	calls = []Call{} // Reset calls slice to avoid duplicates
+func Scrape(database *database.Queries) {
 	c := colly.NewCollector()
 
+	db = database
 	c.OnHTML("article", getCallDetails)
 	c.OnHTML("tbody", getCalls)
 	err := c.Visit(fmt.Sprintf("%s/public/Bandi?type=BRS&str=34&s=0", baseUrl))
 	if err != nil {
 		log.Fatalf("Failed to visit the page: %v", err)
 	}
-
-	// Create a new slice to give back to the caller
-	res := make([]Call, len(calls))
-	for i, call := range calls {
-		res[i] = Call{
-			call.Title,
-			call.ExpirationDate,
-			call.CallUrl,
-			call.ModuleUrl,
-		}
-	}
-	return &res
 }
 
 func getCalls(h *colly.HTMLElement) {
@@ -79,25 +62,19 @@ func getCallDetails(h *colly.HTMLElement) {
 	start := strings.Index(titleFull, "“")
 	end := strings.Index(titleFull, "”")
 	title := strings.TrimSpace(titleFull[start+1 : end])
-	call := Call{
-		Title:          title,
-		CallUrl:        callUrl,
-		ExpirationDate: expirationDate,
-		ModuleUrl:      applicationUrl,
+	call := database.CreateCallParams{
+		Title:        title,
+		Deadline:     expirationDate,
+		Requirements: callUrl,
+		ApplyModule:  applicationUrl,
 	}
-	calls = append(calls, call)
-}
 
-func (c *Call) String() string {
-	return fmt.Sprintf("Title: %s\nExpiration Date: %s\nRequirements URL: %s\nApplication Module URL: %s\n", c.Title, c.ExpirationDate, c.CallUrl, c.ModuleUrl)
-}
-
-func (c *Call) ToBotStringHTML() string {
-	msgText := fmt.Sprintf(
-		"🎓 <b>%s</b>\n\n"+
-			"• <b>Deadline:</b> %s\n",
-		c.Title,
-		c.ExpirationDate,
-	)
-	return strings.ToValidUTF8(msgText, "")
+	// insert the call into the database
+	if db == nil {
+		log.Fatal("Database is not initialized")
+	}
+	ctx := context.Background()
+	if _, err := db.CreateCall(ctx, call); err != nil {
+		log.Printf("Failed to create call: %v", err)
+	}
 }

@@ -1,0 +1,4 @@
+development:
+  dialect: sqlite3
+  datasource: research_calls.db
+  dir: db/migrations
