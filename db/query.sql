@@ -35,15 +35,31 @@ VALUES (
 
 -- Get all the calls that a user has not yet received
 -- name: GetCallsToSend :many
-select c.id, c.title, c.deadline, c.requirements, c.apply_module
-from calls c
-where
+SELECT c.id, c.title, c.deadline, c.requirements, c.apply_module
+FROM calls c
+WHERE
     c.id
-    not in (select call_id from users_calls where user_chat_id = sqlc.arg(user_chat_id))
+    NOT IN (SELECT call_id FROM users_calls WHERE user_chat_id = sqlc.arg(user_chat_id))
 ;
 
 -- name: GetUsers :many
-select chat_id, first_interaction
-from bot_users
+SELECT chat_id, first_interaction
+FROM bot_users
+WHERE is_active = 1
 ;
 
+-- Remove all the calls with a past deadline
+-- name: DeleteOlderCalls :many
+DELETE
+FROM calls
+WHERE date('now') > date(deadline)
+RETURNING id;
+
+-- Remove all the relationship between users and all the past calls
+-- name: CleanNotificationsHistory :exec
+DELETE FROM users_calls
+WHERE call_id IN (
+  SELECT id
+  FROM calls
+  WHERE date('now') > date(deadline)
+);

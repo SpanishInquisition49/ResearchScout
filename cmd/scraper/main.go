@@ -41,6 +41,9 @@ func main() {
 	log.Println("Connected to the database successfully.")
 	// spawn a long lived goroutine to handle the bot
 	go handleBot(bot, requestsDB)
+	// spawn a long lived goroutin to handle the database cleanup
+	go handleCleanup(conn)
+	// spawn a long lived goroutine to handle the crawler
 	go handleCrawler(requestsDB)
 	// Infinite loop to keep the service running
 	for {
@@ -118,4 +121,39 @@ func handleBot(bot *tgbotapi.BotAPI, db *database.Queries) {
 		}
 	}
 	log.Println("Bot handler stopped.")
+}
+
+func handleCleanup(conn *sql.DB) {
+	for {
+		// Delete older calls
+		log.Println("Starting the database cleanup...")
+		if err := cleanupDatabase(conn); err != nil {
+			log.Printf("Cleanup failed: %v", err)
+		} else {
+			log.Println("Cleanup done")
+		}
+		time.Sleep(24 * time.Hour) // Run once a day
+	}
+}
+
+func cleanupDatabase(conn *sql.DB) error {
+	ctx := context.Background()
+	tx, err := conn.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	db := database.New(tx)
+
+	if err := db.CleanNotificationsHistory(ctx); err != nil {
+		return err
+	}
+	if _, err := db.DeleteOlderCalls(ctx); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }
