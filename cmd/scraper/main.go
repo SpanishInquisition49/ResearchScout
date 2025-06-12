@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	log.Println("Starting Unipi Research Crawler...")
+	log.Println("Starting Unipi Research Scout...")
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
